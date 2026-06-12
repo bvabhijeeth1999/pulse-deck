@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Rotation Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+:root{
+  --bg:#06070d; --panel:rgba(255,255,255,.035); --panel2:rgba(255,255,255,.06);
+  --line:rgba(255,255,255,.08); --txt:#e8eaf2; --dim:#8b91a7; --dim2:#5c6177;
+  --green:#34d399; --red:#fb7185; --amber:#fbbf24; --cyan:#22d3ee; --violet:#a78bfa;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--txt);font-family:'Space Grotesk',sans-serif;overflow-x:hidden;min-height:100vh}
+.mono{font-family:'JetBrains Mono',monospace}
+
+/* ── animated background ── */
+.bg{position:fixed;inset:0;z-index:-2;overflow:hidden}
+.bg::after{content:"";position:absolute;inset:0;
+  background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);
+  background-size:56px 56px;mask-image:radial-gradient(ellipse 90% 70% at 50% 0%,#000 30%,transparent 75%)}
+.blob{position:absolute;border-radius:50%;filter:blur(110px);opacity:.5;animation:drift 26s ease-in-out infinite alternate}
+.b1{width:560px;height:560px;background:#0e7490;top:-220px;left:-120px}
+.b2{width:480px;height:480px;background:#7c2d12;top:-160px;right:-100px;animation-delay:-9s}
+.b3{width:520px;height:520px;background:#312e81;bottom:-260px;left:34%;animation-delay:-17s}
+@keyframes drift{from{transform:translate(0,0) scale(1)}to{transform:translate(70px,50px) scale(1.15)}}
+
+.wrap{max-width:1280px;margin:0 auto;padding:0 22px 90px}
+
+/* ── header ── */
+header{display:flex;align-items:center;justify-content:space-between;padding:26px 0 8px;flex-wrap:wrap;gap:10px}
+.logo{display:flex;align-items:center;gap:13px}
+.logo .gem{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;font-size:20px;
+  background:linear-gradient(135deg,#0891b2,#6d28d9);box-shadow:0 0 28px rgba(34,211,238,.4)}
+.logo h1{font-size:21px;font-weight:700;letter-spacing:.13em}
+.logo h1 span{color:var(--cyan)}
+.logo small{display:block;color:var(--dim);font-size:11px;letter-spacing:.28em;font-weight:400}
+.stamp{text-align:right;color:var(--dim);font-size:12px}
+.stamp .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);margin-right:6px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(52,211,153,.5)}50%{box-shadow:0 0 0 6px rgba(52,211,153,0)}}
+
+/* ── hero ── */
+.hero{margin-top:26px;border:1px solid var(--line);border-radius:22px;padding:34px 36px;position:relative;overflow:hidden;
+  background:linear-gradient(160deg,rgba(34,211,238,.07),rgba(167,139,250,.05) 45%,rgba(255,255,255,.02))}
+.hero .label{color:var(--dim);font-size:12px;letter-spacing:.24em;text-transform:uppercase}
+.hero .big{font-size:clamp(42px,6.4vw,72px);font-weight:700;line-height:1.05;margin:8px 0 4px;
+  background:linear-gradient(95deg,#fff 25%,#7dd3fc 65%,#c4b5fd);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .sub{color:var(--dim);font-size:13px}
+.heroStats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-top:28px}
+.hstat{border:1px solid var(--line);border-radius:14px;padding:14px 16px;background:rgba(0,0,0,.22);backdrop-filter:blur(6px)}
+.hstat .k{color:var(--dim);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+.hstat .v{font-size:22px;font-weight:600;margin-top:5px}
+
+/* ── tabs ── */
+nav{position:sticky;top:0;z-index:50;display:flex;gap:8px;padding:14px 0;margin-top:28px;
+  background:linear-gradient(var(--bg) 78%,transparent);flex-wrap:wrap}
+nav button{font-family:inherit;font-size:13.5px;font-weight:600;letter-spacing:.04em;color:var(--dim);
+  background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:9px 20px;cursor:pointer;transition:.22s}
+nav button:hover{color:var(--txt);background:var(--panel2)}
+nav button.on{color:#04060b;background:var(--acc,#22d3ee);border-color:transparent;box-shadow:0 0 22px color-mix(in srgb,var(--acc,#22d3ee) 45%,transparent)}
+
+/* ── cards / grids ── */
+.grid{display:grid;gap:16px}
+.card{border:1px solid var(--line);border-radius:18px;background:var(--panel);backdrop-filter:blur(8px);padding:20px 22px;position:relative}
+.card h3{font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);margin-bottom:14px;font-weight:600}
+.section{display:none;animation:fadein .35s ease}
+.section.on{display:block}
+@keyframes fadein{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* overview strategy cards */
+.ovGrid{grid-template-columns:repeat(auto-fit,minmax(310px,1fr));margin-top:8px}
+.stratCard{cursor:pointer;transition:.25s;overflow:hidden}
+.stratCard:hover{transform:translateY(-4px);border-color:color-mix(in srgb,var(--acc) 50%,transparent);box-shadow:0 14px 44px -16px color-mix(in srgb,var(--acc) 40%,transparent)}
+.stratCard::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;background:linear-gradient(90deg,var(--acc),transparent)}
+.scTop{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.scName{font-size:17px;font-weight:700}
+.scMkt{color:var(--dim);font-size:12px;margin-top:2px}
+.badge{font-size:10.5px;font-weight:700;letter-spacing:.12em;padding:5px 11px;border-radius:999px;white-space:nowrap}
+.badge.onr{background:rgba(52,211,153,.14);color:var(--green);border:1px solid rgba(52,211,153,.4)}
+.badge.offr{background:rgba(251,191,36,.13);color:var(--amber);border:1px solid rgba(251,191,36,.4)}
+.scNav{font-size:30px;font-weight:700;margin:14px 0 2px}
+.scPl{font-size:13.5px;font-weight:600}
+.spark{height:54px;margin-top:10px}
+.scFoot{display:flex;justify-content:space-between;color:var(--dim);font-size:12px;margin-top:10px}
+
+/* stat chips */
+.chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:14px 0 18px}
+.chip{border:1px solid var(--line);border-radius:13px;padding:12px 14px;background:rgba(0,0,0,.2)}
+.chip .k{color:var(--dim);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase}
+.chip .v{font-size:19px;font-weight:600;margin-top:4px}
+
+.pos{color:var(--green)} .neg{color:var(--red)} .mut{color:var(--dim)}
+
+/* pipeline */
+.pipe{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.pipe .step{border:1px solid var(--line);background:rgba(0,0,0,.25);border-radius:11px;padding:9px 13px;font-size:12.5px}
+.pipe .step b{display:block;font-size:10px;color:var(--dim);letter-spacing:.12em;text-transform:uppercase;margin-bottom:3px}
+.pipe .arr{color:var(--dim2);font-size:15px}
+
+/* tables */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{color:var(--dim);font-size:10.5px;text-transform:uppercase;letter-spacing:.12em;text-align:right;padding:8px 10px;border-bottom:1px solid var(--line);font-weight:600}
+td{padding:9px 10px;text-align:right;border-bottom:1px solid rgba(255,255,255,.045)}
+th:first-child,td:first-child{text-align:left}
+tr:hover td{background:rgba(255,255,255,.025)}
+.sym{font-weight:700;font-family:'JetBrains Mono',monospace;font-size:12.5px}
+.scroll{max-height:420px;overflow:auto}
+.scroll::-webkit-scrollbar{width:8px;height:8px}
+.scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:8px}
+
+/* trail buffer bars */
+.tbRow{display:grid;grid-template-columns:88px 1fr 84px;align-items:center;gap:12px;margin:9px 0}
+.tbBar{height:9px;border-radius:6px;background:rgba(255,255,255,.07);overflow:hidden;position:relative}
+.tbFill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--red),var(--amber) 35%,var(--green) 70%)}
+.tbPct{font-size:12px;text-align:right}
+
+/* ideal vs actual */
+.diffWrap{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.diffCol .t{font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--dim);margin-bottom:9px}
+.tag{display:inline-block;margin:0 6px 7px 0;padding:6px 12px;border-radius:9px;font-size:12.5px;font-weight:600;font-family:'JetBrains Mono',monospace}
+.tag.m{background:rgba(52,211,153,.12);color:var(--green);border:1px solid rgba(52,211,153,.35)}
+.tag.b{background:rgba(34,211,238,.1);color:var(--cyan);border:1px solid rgba(34,211,238,.35)}
+.tag.x{background:rgba(251,113,133,.1);color:var(--red);border:1px solid rgba(251,113,133,.35)}
+.tag small{color:var(--dim);font-weight:400;margin-left:5px}
+
+/* regime gauge */
+.gaugeRow{display:flex;align-items:center;gap:16px;margin-bottom:8px;flex-wrap:wrap}
+.gNum{font-size:34px;font-weight:700}
+.gMeta{color:var(--dim);font-size:12.5px;line-height:1.6}
+
+.ec{width:100%}
+.note{color:var(--dim2);font-size:11.5px;margin-top:10px;line-height:1.5}
+.empty{color:var(--dim);font-size:14px;padding:26px;text-align:center;border:1px dashed var(--line);border-radius:14px;line-height:1.7}
+footer{margin-top:60px;color:var(--dim2);font-size:11.5px;text-align:center;line-height:1.8}
+@media(max-width:720px){.hero{padding:24px}.card{padding:16px}}
+</style>
+</head>
+<body>
+<div class="bg"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+<div class="wrap">
+  <header>
+    <div class="logo">
+      <div class="gem">◈</div>
+      <h1>ROTATION<span>ENGINE</span><small>MOMENTUM · REGIME · TRAIL</small></h1>
+    </div>
+    <div class="stamp mono"><span class="dot"></span>LIVE JOURNAL SYNC<br><span id="stamp"></span></div>
+  </header>
+
+  <div class="hero">
+    <div class="label">Combined portfolio value</div>
+    <div class="big mono" id="heroNav">—</div>
+    <div class="sub" id="heroSub"></div>
+    <div class="heroStats" id="heroStats"></div>
+  </div>
+
+  <nav id="tabs"></nav>
+  <main id="main"></main>
+
+  <footer>Source of truth: local portfolio journals · prices via Yahoo Finance (may be delayed)<br>
+  Generated <span id="stamp2"></span> · not investment advice</footer>
+</div>
+
+<script>
+const DATA = {"generated": "2026-06-12 03:55 UTC", "strategies": [{"key": "sp500", "name": "S&P 500 Momentum", "market": "US", "currency": "USD", "csym": "$", "accent": "#22d3ee", "benchmark": "SPY", "regime": {"on": true, "close": 737.76, "sma": 673.83, "dist_pct": 9.49, "asof": "2026-06-11", "series": [["2025-05-30", 589.39, 570.27], ["2025-06-02", 592.71, 570.53], ["2025-06-03", 596.09, 570.8], ["2025-06-04", 595.93, 571.07], ["2025-06-05", 593.05, 571.3], ["2025-06-06", 599.14, 571.56], ["2025-06-09", 599.68, 571.82], ["2025-06-10", 603.08, 572.09], ["2025-06-11", 601.36, 572.35], ["2025-06-12", 603.75, 572.6], ["2025-06-13", 597.0, 572.82], ["2025-06-16", 602.68, 573.06], ["2025-06-17", 597.53, 573.26], ["2025-06-18", 597.44, 573.46], ["2025-06-20", 594.28, 573.65], ["2025-06-23", 600.15, 573.87], ["2025-06-24", 606.78, 574.12], ["2025-06-25", 607.12, 574.37], ["2025-06-26", 611.87, 574.64], ["2025-06-27", 614.91, 574.91], ["2025-06-30", 617.85, 575.21], ["2025-07-01", 617.65, 575.5], ["2025-07-02", 620.45, 575.78], ["2025-07-03", 625.34, 576.08], ["2025-07-07", 620.68, 576.34], ["2025-07-08", 620.34, 576.6], ["2025-07-09", 624.06, 576.88], ["2025-07-10", 625.82, 577.13], ["2025-07-11", 623.62, 577.4], ["2025-07-14", 624.81, 577.66], ["2025-07-15", 622.14, 577.9], ["2025-07-16", 624.22, 578.14], ["2025-07-17", 628.04, 578.43], ["2025-07-18", 627.58, 578.72], ["2025-07-21", 628.77, 579.04], ["2025-07-22", 628.86, 579.34], ["2025-07-23", 634.21, 579.66], ["2025-07-24", 634.42, 580.04], ["2025-07-25", 637.1, 580.43], ["2025-07-28", 636.94, 580.8], ["2025-07-29", 635.26, 581.16], ["2025-07-30", 634.46, 581.53], ["2025-07-31", 632.08, 581.86], ["2025-08-01", 621.72, 582.17], ["2025-08-04", 631.17, 582.57], ["2025-08-05", 627.97, 583.01], ["2025-08-06", 632.78, 583.45], ["2025-08-07", 632.25, 583.9], ["2025-08-08", 637.18, 584.33], ["2025-08-11", 635.92, 584.74], ["2025-08-12", 642.69, 585.18], ["2025-08-13", 644.89, 585.59], ["2025-08-14", 644.95, 586.0], ["2025-08-15", 643.44, 586.36], ["2025-08-18", 643.3, 586.71], ["2025-08-19", 639.81, 587.03], ["2025-08-20", 638.11, 587.35], ["2025-08-21", 635.55, 587.65], ["2025-08-22", 645.31, 588.01], ["2025-08-25", 642.47, 588.33], ["2025-08-26", 645.16, 588.67], ["2025-08-27", 646.63, 589.01], ["2025-08-28", 648.92, 589.37], ["2025-08-29", 645.05, 589.72], ["2025-09-02", 640.27, 590.02], ["2025-09-03", 643.74, 590.39], ["2025-09-04", 649.12, 590.78], ["2025-09-05", 647.24, 591.17], ["2025-09-08", 648.83, 591.61], ["2025-09-09", 650.33, 592.02], ["2025-09-10", 652.21, 592.44], ["2025-09-11", 657.63, 592.85], ["2025-09-12", 657.41, 593.24], ["2025-09-15", 660.91, 593.64], ["2025-09-16", 660.0, 594.03], ["2025-09-17", 659.18, 594.41], ["2025-09-18", 662.26, 594.81], ["2025-09-19", 663.7, 595.18], ["2025-09-22", 666.84, 595.58], ["2025-09-23", 663.21, 595.95], ["2025-09-24", 661.1, 596.31], ["2025-09-25", 658.05, 596.66], ["2025-09-26", 661.82, 597.02], ["2025-09-29", 663.68, 597.39], ["2025-09-30", 666.18, 597.76], ["2025-10-01", 668.45, 598.16], ["2025-10-02", 669.22, 598.56], ["2025-10-03", 669.21, 598.97], ["2025-10-06", 671.61, 599.36], ["2025-10-07", 669.12, 599.77], ["2025-10-08", 673.11, 600.17], ["2025-10-09", 671.16, 600.54], ["2025-10-10", 653.02, 600.85], ["2025-10-13", 663.04, 601.18], ["2025-10-14", 662.23, 601.5], ["2025-10-15", 665.17, 601.84], ["2025-10-16", 660.64, 602.15], ["2025-10-17", 664.39, 602.48], ["2025-10-20", 671.3, 602.83], ["2025-10-21", 671.29, 603.18], ["2025-10-22", 667.8, 603.51], ["2025-10-23", 671.76, 603.89], ["2025-10-24", 677.25, 604.28], ["2025-10-27", 685.24, 604.71], ["2025-10-28", 687.06, 605.13], ["2025-10-29", 687.39, 605.55], ["2025-10-30", 679.83, 605.95], ["2025-10-31", 682.06, 606.41], ["2025-11-03", 683.34, 606.86], ["2025-11-04", 675.24, 607.28], ["2025-11-05", 677.58, 607.68], ["2025-11-06", 670.31, 608.0], ["2025-11-07", 670.97, 608.3], ["2025-11-10", 681.44, 608.63], ["2025-11-11", 683.0, 608.97], ["2025-11-12", 683.38, 609.32], ["2025-11-13", 672.04, 609.62], ["2025-11-14", 671.93, 609.93], ["2025-11-17", 665.67, 610.25], ["2025-11-18", 660.08, 610.54], ["2025-11-19", 662.63, 610.83], ["2025-11-20", 652.53, 611.07], ["2025-11-21", 659.03, 611.34], ["2025-11-24", 668.73, 611.63], ["2025-11-25", 675.02, 611.94], ["2025-11-26", 679.68, 612.25], ["2025-11-28", 683.39, 612.59], ["2025-12-01", 680.27, 612.9], ["2025-12-02", 681.53, 613.22], ["2025-12-03", 683.89, 613.54], ["2025-12-04", 684.39, 613.84], ["2025-12-05", 685.69, 614.16], ["2025-12-08", 683.63, 614.46], ["2025-12-09", 683.04, 614.78], ["2025-12-10", 687.57, 615.11], ["2025-12-11", 689.17, 615.44], ["2025-12-12", 681.76, 615.75], ["2025-12-15", 680.73, 616.06], ["2025-12-16", 678.87, 616.35], ["2025-12-17", 671.4, 616.61], ["2025-12-18", 676.47, 616.97], ["2025-12-19", 680.59, 617.35], ["2025-12-22", 684.83, 617.73], ["2025-12-23", 687.96, 618.1], ["2025-12-24", 690.38, 618.46], ["2025-12-26", 690.31, 618.81], ["2025-12-29", 687.85, 619.18], ["2025-12-30", 687.01, 619.58], ["2025-12-31", 681.92, 619.96], ["2026-01-02", 683.17, 620.36], ["2026-01-05", 687.72, 620.74], ["2026-01-06", 691.81, 621.13], ["2026-01-07", 689.58, 621.53], ["2026-01-08", 689.51, 621.93], ["2026-01-09", 694.07, 622.38], ["2026-01-12", 695.16, 622.84], ["2026-01-13", 693.77, 623.28], ["2026-01-14", 690.36, 623.68], ["2026-01-15", 692.24, 624.08], ["2026-01-16", 691.66, 624.45], ["2026-01-20", 677.58, 624.75], ["2026-01-21", 685.4, 625.07], ["2026-01-22", 688.98, 625.38], ["2026-01-23", 689.23, 625.71], ["2026-01-26", 692.73, 626.08], ["2026-01-27", 695.49, 626.45], ["2026-01-28", 695.42, 626.82], ["2026-01-29", 694.04, 627.18], ["2026-01-30", 691.97, 627.54], ["2026-02-02", 695.41, 627.93], ["2026-02-03", 689.53, 628.28], ["2026-02-04", 686.19, 628.61], ["2026-02-05", 677.62, 628.89], ["2026-02-06", 690.62, 629.25], ["2026-02-09", 693.95, 629.61], ["2026-02-10", 692.12, 629.96], ["2026-02-11", 691.96, 630.31], ["2026-02-12", 681.27, 630.6], ["2026-02-13", 681.75, 630.88], ["2026-02-17", 682.85, 631.17], ["2026-02-18", 686.29, 631.46], ["2026-02-19", 684.48, 631.76], ["2026-02-20", 689.43, 632.12], ["2026-02-23", 682.39, 632.46], ["2026-02-24", 687.35, 632.83], ["2026-02-25", 693.15, 633.23], ["2026-02-26", 689.3, 633.64], ["2026-02-27", 685.99, 634.01], ["2026-03-02", 686.38, 634.42], ["2026-03-03", 680.33, 634.83], ["2026-03-04", 685.13, 635.24], ["2026-03-05", 681.31, 635.68], ["2026-03-06", 672.38, 636.06], ["2026-03-09", 678.27, 636.53], ["2026-03-10", 677.18, 637.02], ["2026-03-11", 676.33, 637.49], ["2026-03-12", 666.06, 637.95], ["2026-03-13", 662.29, 638.34], ["2026-03-16", 669.03, 638.75], ["2026-03-17", 670.79, 639.19], ["2026-03-18", 661.43, 639.57], ["2026-03-19", 659.8, 639.95], ["2026-03-20", 648.57, 640.28], ["2026-03-23", 655.38, 640.61], ["2026-03-24", 653.18, 640.92], ["2026-03-25", 656.82, 641.27], ["2026-03-26", 645.09, 641.59], ["2026-03-27", 634.09, 641.9], ["2026-03-30", 631.97, 642.19], ["2026-03-31", 650.34, 642.55], ["2026-04-01", 655.24, 642.91], ["2026-04-02", 655.83, 643.39], ["2026-04-06", 658.93, 644.0], ["2026-04-07", 659.22, 644.62], ["2026-04-08", 676.01, 645.34], ["2026-04-09", 679.91, 645.86], ["2026-04-10", 679.46, 646.48], ["2026-04-13", 686.1, 647.09], ["2026-04-14", 694.46, 647.71], ["2026-04-15", 699.94, 648.36], ["2026-04-16", 701.66, 649.07], ["2026-04-17", 710.14, 649.8], ["2026-04-20", 708.72, 650.58], ["2026-04-21", 704.08, 651.29], ["2026-04-22", 711.21, 651.99], ["2026-04-23", 708.45, 652.64], ["2026-04-24", 713.94, 653.29], ["2026-04-27", 715.17, 653.95], ["2026-04-28", 711.69, 654.58], ["2026-04-29", 711.58, 655.21], ["2026-04-30", 718.66, 655.85], ["2026-05-01", 720.65, 656.46], ["2026-05-04", 718.01, 657.08], ["2026-05-05", 723.77, 657.74], ["2026-05-06", 733.83, 658.43], ["2026-05-07", 731.58, 659.1], ["2026-05-08", 737.62, 659.79], ["2026-05-11", 739.3, 660.42], ["2026-05-12", 738.18, 661.02], ["2026-05-13", 742.31, 661.64], ["2026-05-14", 748.17, 662.27], ["2026-05-15", 739.17, 662.85], ["2026-05-18", 738.65, 663.43], ["2026-05-19", 733.73, 663.99], ["2026-05-20", 741.25, 664.62], ["2026-05-21", 742.72, 665.26], ["2026-05-22", 745.64, 665.93], ["2026-05-26", 750.59, 666.57], ["2026-05-27", 750.46, 667.22], ["2026-05-28", 754.6, 667.87], ["2026-05-29", 756.48, 668.54], ["2026-06-01", 758.54, 669.21], ["2026-06-02", 759.57, 669.86], ["2026-06-03", 754.24, 670.49], ["2026-06-04", 757.09, 671.15], ["2026-06-05", 737.55, 671.7], ["2026-06-08", 739.22, 672.26], ["2026-06-09", 737.05, 672.8], ["2026-06-10", 725.43, 673.29], ["2026-06-11", 737.76, 673.83]]}, "rules": {"signal": "6m momentum (126d)", "top_n": 10, "universe": "S&P 500 members", "mom_cap": null, "vol_cap": null, "regime": "SPY > 250-SMA", "off_asset": "100% GLD", "rebal_mode": "winners_run", "weight_cap": null, "trail": 0.3, "capital": 14000, "dca": "2/7 tranches"}, "deposits": 4000.0, "cash": 280.91, "mtm": 3832.99, "nav": 4113.9, "realized": 240.92, "unrealized": -127.01, "total_pl": 113.9, "total_pl_pct": 2.85, "holdings": [{"symbol": "AMAT", "shares": 0.8163, "vwap": 490.05, "cost": 400.0, "last": 552.64, "value": 451.12, "upl": 51.12, "upl_pct": 12.78, "first_buy": "2026-06-03", "peak": 552.64, "stop": 386.85, "buffer_pct": 42.86, "weight": 11.77}, {"symbol": "LRCX", "shares": 1.1962, "vwap": 334.41, "cost": 400.0, "last": 362.52, "value": 433.65, "upl": 33.65, "upl_pct": 8.41, "first_buy": "2026-06-03", "peak": 362.52, "stop": 253.76, "buffer_pct": 42.86, "weight": 11.31}, {"symbol": "COHR", "shares": 1.1121, "vwap": 359.68, "cost": 400.0, "last": 363.58, "value": 404.34, "upl": 4.34, "upl_pct": 1.08, "first_buy": "2026-05-11", "peak": 426.89, "stop": 298.82, "buffer_pct": 21.67, "weight": 10.55}, {"symbol": "FIX", "shares": 0.2124, "vwap": 1883.26, "cost": 400.0, "last": 1843.42, "value": 391.54, "upl": -8.46, "upl_pct": -2.11, "first_buy": "2026-06-03", "peak": 1914.65, "stop": 1340.26, "buffer_pct": 37.54, "weight": 10.22}, {"symbol": "TER", "shares": 1.0188, "vwap": 392.62, "cost": 400.0, "last": 381.4, "value": 388.57, "upl": -11.43, "upl_pct": -2.86, "first_buy": "2026-06-03", "peak": 409.67, "stop": 286.77, "buffer_pct": 33.0, "weight": 10.14}, {"symbol": "AMD", "shares": 0.767, "vwap": 521.54, "cost": 400.0, "last": 488.45, "value": 374.64, "upl": -25.36, "upl_pct": -6.34, "first_buy": "2026-06-03", "peak": 542.52, "stop": 379.76, "buffer_pct": 28.62, "weight": 9.77}, {"symbol": "INTC", "shares": 3.143, "vwap": 127.27, "cost": 400.0, "last": 116.96, "value": 367.61, "upl": -32.39, "upl_pct": -8.1, "first_buy": "2026-05-11", "peak": 129.44, "stop": 90.61, "buffer_pct": 29.08, "weight": 9.59}, {"symbol": "GLW", "shares": 1.996, "vwap": 200.4, "cost": 400.0, "last": 176.55, "value": 352.39, "upl": -47.61, "upl_pct": -11.9, "first_buy": "2026-06-03", "peak": 200.76, "stop": 140.53, "buffer_pct": 25.63, "weight": 9.19}, {"symbol": "ON", "shares": 2.8953, "vwap": 124.34, "cost": 360.0, "last": 115.96, "value": 335.74, "upl": -24.26, "upl_pct": -6.74, "first_buy": "2026-05-29", "peak": 133.93, "stop": 93.75, "buffer_pct": 23.69, "weight": 8.76}, {"symbol": "HPE", "shares": 7.1238, "vwap": 56.15, "cost": 400.0, "last": 46.8, "value": 333.39, "upl": -66.61, "upl_pct": -16.65, "first_buy": "2026-06-03", "peak": 56.15, "stop": 39.3, "buffer_pct": 19.07, "weight": 8.7}], "trades": [{"date": "2026-06-03", "action": "BUY", "symbol": "FIX", "qty": 0.2124, "price": 1883.26, "amount": 400.0, "reason": "new_entry", "notes": "MOM_CAP=2.0 replacement", "realized": null}, {"date": "2026-06-03", "action": "BUY", "symbol": "AMAT", "qty": 0.8163, "price": 490.05, "amount": 400.0, "reason": "new_entry", "notes": "MOM_CAP=2.0 replacement", "realized": null}, {"date": "2026-06-03", "action": "BUY", "symbol": "LRCX", "qty": 1.1962, "price": 334.41, "amount": 400.0, "reason": "new_entry", "notes": "MOM_CAP=2.0 replacement", "realized": null}, {"date": "2026-06-03", "action": "BUY", "symbol": "TER", "qty": 1.0188, "price": 392.62, "amount": 400.0, "reason": "new_entry", "notes": "MOM_CAP=2.0 replacement", "realized": null}, {"date": "2026-06-03", "action": "BUY", "symbol": "GLW", "qty": 1.996, "price": 200.4, "amount": 400.0, "reason": "new_entry", "notes": "MOM_CAP=2.0 replacement", "realized": null}, {"date": "2026-06-03", "action": "BUY", "symbol": "AMD", "qty": 0.767, "price": 521.54, "amount": 400.0, "reason": "new_entry", "notes": "MOM_CAP=2.0 replacement", "realized": null}, {"date": "2026-06-03", "action": "BUY", "symbol": "HPE", "qty": 7.1238, "price": 56.15, "amount": 400.0, "reason": "new_entry", "notes": "MOM_CAP=2.0 replacement", "realized": null}, {"date": "2026-06-03", "action": "SELL", "symbol": "DELL", "qty": 0.8612, "price": 435.31, "amount": 374.89, "reason": "rotated_out", "notes": "MOM_CAP=2.0 mid-month rotation (approx fill)", "realized": 14.91}, {"date": "2026-06-03", "action": "SELL", "symbol": "CIEN", "qty": 0.7118, "price": 627.0, "amount": 446.27, "reason": "rotated_out", "notes": "MOM_CAP=2.0 mid-month rotation (approx fill)", "realized": 46.27}, {"date": "2026-06-03", "action": "SELL", "symbol": "STX", "qty": 0.4761, "price": 926.61, "amount": 441.16, "reason": "rotated_out", "notes": "MOM_CAP=2.0 mid-month rotation (approx fill)", "realized": 41.16}, {"date": "2026-06-03", "action": "SELL", "symbol": "WDC", "qty": 0.7778, "price": 563.1, "amount": 437.96, "reason": "rotated_out", "notes": "MOM_CAP=2.0 mid-month rotation (approx fill)", "realized": 37.96}, {"date": "2026-06-03", "action": "SELL", "symbol": "MU", "qty": 0.4612, "price": 1064.1, "amount": 490.77, "reason": "rotated_out", "notes": "MOM_CAP=2.0 mid-month rotation (approx fill)", "realized": 90.77}, {"date": "2026-06-03", "action": "SELL", "symbol": "LITE", "qty": 0.443, "price": 1029.15, "amount": 455.91, "reason": "rotated_out", "notes": "MOM_CAP=2.0 mid-month rotation (approx fill)", "realized": 55.91}, {"date": "2026-06-03", "action": "SELL", "symbol": "SNDK", "qty": 0.245, "price": 1716.36, "amount": 420.51, "reason": "rotated_out", "notes": "MOM_CAP=2.0 mid-month rotation (approx fill)", "realized": 20.51}, {"date": "2026-05-29", "action": "BUY", "symbol": "SNDK", "qty": 0.1189, "price": 1682.0, "amount": 200.0, "reason": "top_up", "notes": "Tranche 2 top-up", "realized": null}, {"date": "2026-05-29", "action": "BUY", "symbol": "LITE", "qty": 0.2324, "price": 860.68, "amount": 200.0, "reason": "top_up", "notes": "Tranche 2 top-up", "realized": null}, {"date": "2026-05-29", "action": "BUY", "symbol": "INTC", "qty": 1.6149, "price": 123.85, "amount": 200.0, "reason": "top_up", "notes": "Tranche 2 top-up", "realized": null}, {"date": "2026-05-29", "action": "BUY", "symbol": "MU", "qty": 0.209, "price": 957.0, "amount": 200.0, "reason": "top_up", "notes": "Tranche 2 top-up", "realized": null}, {"date": "2026-05-29", "action": "BUY", "symbol": "WDC", "qty": 0.3688, "price": 542.3, "amount": 200.0, "reason": "top_up", "notes": "Tranche 2 top-up", "realized": null}, {"date": "2026-05-29", "action": "BUY", "symbol": "STX", "qty": 0.224, "price": 892.83, "amount": 200.0, "reason": "top_up", "notes": "Tranche 2 top-up", "realized": null}, {"date": "2026-05-29", "action": "BUY", "symbol": "CIEN", "qty": 0.3534, "price": 566.02, "amount": 200.0, "reason": "top_up", "notes": "Tranche 2 top-up", "realized": null}, {"date": "2026-05-29", "action": "BUY", "symbol": "COHR", "qty": 0.5324, "price": 375.65, "amount": 200.0, "reason": "top_up", "notes": "Tranche 2 top-up", "realized": null}, {"date": "2026-05-29", "action": "BUY", "symbol": "ON", "qty": 2.8953, "price": 124.34, "amount": 360.0, "reason": "new_entry", "notes": "Tranche 2", "realized": null}, {"date": "2026-05-29", "action": "BUY", "symbol": "DELL", "qty": 0.8612, "price": 418.0, "amount": 360.0, "reason": "new_entry", "notes": "Tranche 2", "realized": null}, {"date": "2026-05-29", "action": "SELL", "symbol": "MRNA", "qty": 3.4435, "price": 47.27, "amount": 162.79, "reason": "rotated_out", "notes": "Tranche 2 rebal", "realized": -37.21}, {"date": "2026-05-29", "action": "SELL", "symbol": "ALB", "qty": 0.9515, "price": 179.35, "amount": 170.65, "reason": "rotated_out", "notes": "Tranche 2 rebal", "realized": -29.36}, {"date": "2026-05-29", "action": "DEPOSIT", "symbol": null, "qty": null, "price": null, "amount": 2000.0, "reason": "tranche_2", "notes": "DCA tranche 2 ($32K/7-tranche plan)", "realized": null}, {"date": "2026-05-11", "action": "BUY", "symbol": "ALB", "qty": 0.9515, "price": 210.2, "amount": 200.0, "reason": "new_entry", "notes": "Tranche 1", "realized": null}, {"date": "2026-05-11", "action": "BUY", "symbol": "MRNA", "qty": 3.4435, "price": 58.08, "amount": 200.0, "reason": "new_entry", "notes": "Tranche 1", "realized": null}, {"date": "2026-05-11", "action": "BUY", "symbol": "COHR", "qty": 0.5797, "price": 345.0, "amount": 200.0, "reason": "new_entry", "notes": "Tranche 1", "realized": null}, {"date": "2026-05-11", "action": "BUY", "symbol": "CIEN", "qty": 0.3584, "price": 558.0, "amount": 200.0, "reason": "new_entry", "notes": "Tranche 1", "realized": null}, {"date": "2026-05-11", "action": "BUY", "symbol": "STX", "qty": 0.2521, "price": 793.25, "amount": 200.0, "reason": "new_entry", "notes": "Tranche 1", "realized": null}, {"date": "2026-05-11", "action": "BUY", "symbol": "WDC", "qty": 0.409, "price": 489.03, "amount": 200.0, "reason": "new_entry", "notes": "Tranche 1", "realized": null}, {"date": "2026-05-11", "action": "BUY", "symbol": "MU", "qty": 0.2522, "price": 792.98, "amount": 200.0, "reason": "new_entry", "notes": "Tranche 1", "realized": null}, {"date": "2026-05-11", "action": "BUY", "symbol": "INTC", "qty": 1.5281, "price": 130.88, "amount": 200.0, "reason": "new_entry", "notes": "Tranche 1", "realized": null}, {"date": "2026-05-11", "action": "BUY", "symbol": "LITE", "qty": 0.2106, "price": 949.72, "amount": 200.0, "reason": "new_entry", "notes": "Tranche 1", "realized": null}, {"date": "2026-05-11", "action": "BUY", "symbol": "SNDK", "qty": 0.1261, "price": 1586.25, "amount": 200.0, "reason": "new_entry", "notes": "Tranche 1", "realized": null}, {"date": "2026-05-11", "action": "DEPOSIT", "symbol": null, "qty": null, "price": null, "amount": 2000.0, "reason": "tranche_1", "notes": "DCA tranche 1 (orig $20K/10mo plan; updated 2026-05-27 to $32K/7-tranche)", "realized": null}], "nav_series": [["2026-05-11", 2046.94, 2000.0], ["2026-05-12", 1976.17, 2000.0], ["2026-05-13", 2000.08, 2000.0], ["2026-05-14", 1962.02, 2000.0], ["2026-05-15", 1889.51, 2000.0], ["2026-05-18", 1797.22, 2000.0], ["2026-05-19", 1796.19, 2000.0], ["2026-05-20", 1836.44, 2000.0], ["2026-05-21", 1928.15, 2000.0], ["2026-05-22", 1914.15, 2000.0], ["2026-05-26", 1970.75, 2000.0], ["2026-05-29", 2000.84, 2000.0], ["2026-06-02", 4267.37, 4000.0], ["2026-06-03", 4327.12, 4000.0], ["2026-06-11", 4113.9, 4000.0]], "bench_series": [["2026-05-11", 2000.0], ["2026-05-12", 1996.97], ["2026-05-13", 2008.14], ["2026-05-14", 2024.0], ["2026-05-15", 1999.65], ["2026-05-18", 1998.24], ["2026-05-19", 1984.93], ["2026-05-20", 2005.28], ["2026-05-21", 2009.25], ["2026-05-22", 2017.15], ["2026-05-26", 2030.54], ["2026-05-27", 2030.19], ["2026-05-28", 2041.39], ["2026-05-29", 4046.48], ["2026-06-01", 4057.5], ["2026-06-02", 4063.01], ["2026-06-03", 4034.49], ["2026-06-04", 4049.74], ["2026-06-05", 3945.22], ["2026-06-08", 3954.15], ["2026-06-09", 3942.54], ["2026-06-10", 3880.39], ["2026-06-11", 3946.34]], "ideal": {"asof": "2026-06-03", "label": "6m momentum", "picks": [{"symbol": "SNDK", "score": 771.4, "price": 1831.5}, {"symbol": "MU", "score": 349.0, "price": 1079.57}, {"symbol": "WDC", "score": 263.3, "price": 594.11}, {"symbol": "STX", "score": 248.3, "price": 940.69}, {"symbol": "DELL", "score": 218.8, "price": 421.08}, {"symbol": "CIEN", "score": 208.8, "price": 620.37}, {"symbol": "LITE", "score": 195.0, "price": 938.0}, {"symbol": "INTC", "score": 181.7, "price": 112.71}, {"symbol": "ON", "score": 165.6, "price": 133.93}, {"symbol": "COHR", "score": 155.3, "price": 417.43}]}, "diff": {"matching": ["COHR", "INTC", "ON"], "missing": ["SNDK", "MU", "WDC", "STX", "DELL", "CIEN", "LITE"], "extra": ["AMAT", "AMD", "FIX", "GLW", "HPE", "LRCX", "TER"]}, "off_rule": {"gold_trail_12m": 25.3, "threshold": 40.0, "says": "GOLD"}, "funded": true}, {"key": "n300", "name": "NIFTY 300 Rotation", "market": "India", "currency": "INR", "csym": "\u20b9", "accent": "#f59e0b", "benchmark": "^NSEI", "regime": {"on": false, "close": 23424.15, "sma": 24288.87, "dist_pct": -3.56, "asof": "2026-06-12", "series": [["2025-05-26", 25001.15, 23462.59], ["2025-05-27", 24826.2, 23474.4], ["2025-05-28", 24752.45, 23485.48], ["2025-05-29", 24833.6, 23496.38], ["2025-05-30", 24750.7, 23502.0], ["2025-06-02", 24716.6, 23509.12], ["2025-06-03", 24542.5, 23518.39], ["2025-06-04", 24620.2, 23527.51], ["2025-06-05", 24750.9, 23538.13], ["2025-06-06", 25003.05, 23552.89], ["2025-06-09", 25103.2, 23569.61], ["2025-06-10", 25104.25, 23589.79], ["2025-06-11", 25141.4, 23609.45], ["2025-06-12", 24888.2, 23626.2], ["2025-06-13", 24718.6, 23640.27], ["2025-06-16", 24946.5, 23657.7], ["2025-06-17", 24853.4, 23672.79], ["2025-06-18", 24812.05, 23690.66], ["2025-06-19", 24793.25, 23707.04], ["2025-06-20", 25112.4, 23726.11], ["2025-06-23", 24971.9, 23744.91], ["2025-06-24", 25044.35, 23767.06], ["2025-06-25", 25244.75, 23789.93], ["2025-06-26", 25549.0, 23813.79], ["2025-06-27", 25637.8, 23837.67], ["2025-06-30", 25517.05, 23857.76], ["2025-07-01", 25541.8, 23878.36], ["2025-07-02", 25453.4, 23899.28], ["2025-07-03", 25405.3, 23915.94], ["2025-07-04", 25461.0, 23933.59], ["2025-07-07", 25461.3, 23952.17], ["2025-07-08", 25522.5, 23971.79], ["2025-07-09", 25476.1, 23992.74], ["2025-07-10", 25355.25, 24015.57], ["2025-07-11", 25149.85, 24036.62], ["2025-07-14", 25082.3, 24057.13], ["2025-07-15", 25195.8, 24079.79], ["2025-07-16", 25212.05, 24102.32], ["2025-07-17", 25111.45, 24123.98], ["2025-07-18", 24968.4, 24144.34], ["2025-07-21", 25090.7, 24166.11], ["2025-07-22", 25060.9, 24188.76], ["2025-07-23", 25219.9, 24215.43], ["2025-07-24", 25062.1, 24240.57], ["2025-07-25", 24837.0, 24263.49], ["2025-07-28", 24680.9, 24289.05], ["2025-07-29", 24821.1, 24316.07], ["2025-07-30", 24855.05, 24343.8], ["2025-07-31", 24768.35, 24368.11], ["2025-08-01", 24565.35, 24388.31], ["2025-08-04", 24722.75, 24410.02], ["2025-08-05", 24649.55, 24431.91], ["2025-08-06", 24574.2, 24452.67], ["2025-08-07", 24596.15, 24473.93], ["2025-08-08", 24363.3, 24493.59], ["2025-08-11", 24585.05, 24514.35], ["2025-08-12", 24487.4, 24530.88], ["2025-08-13", 24619.35, 24548.0], ["2025-08-14", 24631.3, 24562.41], ["2025-08-18", 24876.95, 24577.67], ["2025-08-19", 24980.65, 24590.89], ["2025-08-20", 25050.55, 24604.71], ["2025-08-21", 25083.75, 24620.68], ["2025-08-22", 24870.1, 24633.46], ["2025-08-25", 24967.75, 24647.95], ["2025-08-26", 24712.05, 24663.41], ["2025-08-28", 24500.9, 24675.1], ["2025-08-29", 24426.85, 24686.87], ["2025-09-01", 24625.05, 24704.07], ["2025-09-02", 24579.6, 24728.25], ["2025-09-03", 24715.05, 24750.04], ["2025-09-04", 24734.3, 24773.39], ["2025-09-05", 24741.0, 24792.52], ["2025-09-08", 24773.15, 24806.97], ["2025-09-09", 24868.6, 24821.28], ["2025-09-10", 24973.1, 24832.49], ["2025-09-11", 25005.5, 24841.29], ["2025-09-12", 25114.0, 24850.76], ["2025-09-15", 25069.2, 24858.16], ["2025-09-16", 25239.1, 24868.09], ["2025-09-17", 25330.25, 24881.0], ["2025-09-18", 25423.6, 24891.95], ["2025-09-19", 25327.05, 24901.86], ["2025-09-22", 25202.35, 24910.54], ["2025-09-23", 25169.5, 24918.77], ["2025-09-24", 25056.9, 24924.73], ["2025-09-25", 24890.85, 24929.84], ["2025-09-26", 24654.7, 24932.24], ["2025-09-29", 24634.9, 24935.85], ["2025-09-30", 24611.1, 24941.88], ["2025-10-01", 24836.3, 24941.0], ["2025-10-03", 24894.25, 24944.16], ["2025-10-06", 25077.65, 24948.27], ["2025-10-07", 25108.3, 24948.73], ["2025-10-08", 25046.15, 24948.99], ["2025-10-09", 25181.8, 24951.35], ["2025-10-10", 25285.35, 24957.37], ["2025-10-13", 25227.35, 24961.51], ["2025-10-14", 25145.5, 24966.87], ["2025-10-15", 25323.55, 24971.57], ["2025-10-16", 25585.3, 24977.41], ["2025-10-17", 25709.85, 24986.25], ["2025-10-20", 25843.15, 24997.15], ["2025-10-21", 25868.6, 25007.5], ["2025-10-23", 25891.4, 25018.91], ["2025-10-24", 25795.15, 25029.7], ["2025-10-27", 25966.05, 25043.93], ["2025-10-28", 25936.2, 25057.09], ["2025-10-29", 26053.9, 25070.12], ["2025-10-30", 25877.85, 25078.87], ["2025-10-31", 25722.1, 25085.06], ["2025-11-03", 25763.35, 25091.65], ["2025-11-04", 25597.65, 25096.21], ["2025-11-06", 25509.7, 25102.43], ["2025-11-07", 25492.3, 25110.17], ["2025-11-10", 25574.35, 25116.44], ["2025-11-11", 25694.95, 25124.86], ["2025-11-12", 25875.8, 25135.5], ["2025-11-13", 25879.15, 25146.36], ["2025-11-14", 25910.05, 25154.33], ["2025-11-17", 26013.45, 25164.75], ["2025-11-18", 25910.05, 25173.4], ["2025-11-19", 26052.65, 25181.48], ["2025-11-20", 26192.15, 25187.92], ["2025-11-21", 26068.15, 25192.22], ["2025-11-24", 25959.5, 25196.64], ["2025-11-25", 25884.8, 25200.07], ["2025-11-26", 26205.3, 25207.59], ["2025-11-27", 26215.55, 25215.69], ["2025-11-28", 26202.95, 25223.11], ["2025-12-01", 26175.75, 25230.26], ["2025-12-02", 26032.2, 25235.36], ["2025-12-03", 25986.0, 25240.45], ["2025-12-04", 26033.75, 25247.24], ["2025-12-05", 26186.45, 25257.61], ["2025-12-08", 25960.55, 25266.39], ["2025-12-09", 25839.65, 25272.83], ["2025-12-10", 25758.0, 25278.29], ["2025-12-11", 25898.55, 25286.16], ["2025-12-12", 26046.95, 25296.94], ["2025-12-15", 26027.3, 25306.31], ["2025-12-16", 25860.1, 25314.3], ["2025-12-17", 25818.55, 25320.29], ["2025-12-18", 25815.55, 25327.82], ["2025-12-19", 25966.4, 25339.12], ["2025-12-22", 26172.4, 25354.03], ["2025-12-23", 26177.15, 25367.59], ["2025-12-24", 26142.1, 25380.46], ["2025-12-26", 26042.3, 25393.2], ["2025-12-29", 25942.1, 25406.97], ["2025-12-30", 25938.85, 25419.13], ["2025-12-31", 26129.6, 25433.93], ["2026-01-01", 26146.55, 25449.65], ["2026-01-02", 26328.55, 25466.98], ["2026-01-05", 26250.3, 25485.85], ["2026-01-06", 26178.7, 25501.78], ["2026-01-07", 26140.75, 25518.32], ["2026-01-08", 25876.85, 25530.89], ["2026-01-09", 25683.3, 25541.41], ["2026-01-12", 25790.25, 25550.55], ["2026-01-13", 25732.3, 25558.06], ["2026-01-14", 25665.6, 25564.21], ["2026-01-16", 25694.35, 25570.32], ["2026-01-19", 25585.5, 25577.47], ["2026-01-20", 25232.5, 25580.12], ["2026-01-21", 25157.5, 25584.57], ["2026-01-22", 25289.9, 25592.46], ["2026-01-23", 25048.65, 25598.68], ["2026-01-27", 25175.4, 25604.19], ["2026-01-28", 25342.75, 25611.82], ["2026-01-29", 25418.9, 25618.86], ["2026-01-30", 25320.65, 25624.72], ["2026-02-02", 25088.4, 25628.19], ["2026-02-03", 25727.55, 25637.74], ["2026-02-04", 25776.0, 25646.81], ["2026-02-05", 25642.8, 25653.51], ["2026-02-06", 25693.7, 25660.39], ["2026-02-09", 25867.3, 25667.92], ["2026-02-10", 25935.15, 25676.58], ["2026-02-11", 25953.85, 25683.73], ["2026-02-12", 25807.2, 25688.5], ["2026-02-13", 25471.1, 25688.98], ["2026-02-16", 25682.75, 25692.53], ["2026-02-17", 25725.4, 25697.76], ["2026-02-18", 25819.35, 25704.26], ["2026-02-19", 25454.35, 25708.24], ["2026-02-20", 25571.25, 25715.04], ["2026-02-23", 25713.0, 25725.62], ["2026-02-24", 25424.65, 25733.52], ["2026-02-25", 25482.5, 25742.23], ["2026-02-26", 25496.55, 25748.84], ["2026-02-27", 25178.65, 25751.68], ["2026-03-02", 24865.7, 25749.56], ["2026-03-04", 24480.5, 25743.28], ["2026-03-05", 24765.9, 25740.48], ["2026-03-06", 24450.45, 25733.17], ["2026-03-09", 24028.05, 25720.59], ["2026-03-10", 24261.6, 25710.94], ["2026-03-11", 23866.85, 25698.15], ["2026-03-12", 23639.15, 25681.31], ["2026-03-13", 23151.1, 25656.96], ["2026-03-16", 23408.8, 25633.95], ["2026-03-17", 23581.15, 25611.33], ["2026-03-18", 23777.8, 25590.43], ["2026-03-19", 23002.15, 25561.53], ["2026-03-20", 23114.5, 25534.73], ["2026-03-23", 22512.65, 25500.19], ["2026-03-24", 22912.4, 25469.95], ["2026-03-25", 23306.45, 25442.48], ["2026-03-27", 22819.6, 25411.9], ["2026-03-30", 22331.4, 25377.99], ["2026-04-01", 22679.4, 25347.15], ["2026-04-02", 22713.1, 25318.31], ["2026-04-06", 22968.25, 25292.89], ["2026-04-07", 23123.65, 25269.2], ["2026-04-08", 23997.35, 25253.43], ["2026-04-09", 23775.1, 25234.24], ["2026-04-10", 24050.6, 25215.98], ["2026-04-13", 23842.65, 25195.62], ["2026-04-15", 24231.3, 25178.83], ["2026-04-16", 24196.75, 25160.66], ["2026-04-17", 24353.55, 25145.1], ["2026-04-20", 24364.85, 25128.22], ["2026-04-21", 24576.6, 25112.07], ["2026-04-22", 24378.1, 25095.17], ["2026-04-23", 24173.05, 25077.3], ["2026-04-24", 23897.95, 25057.43], ["2026-04-27", 24092.7, 25036.31], ["2026-04-28", 23995.7, 25014.11], ["2026-04-29", 24177.65, 24993.86], ["2026-04-30", 23997.55, 24972.07], ["2026-05-04", 24119.3, 24952.94], ["2026-05-05", 24032.8, 24933.41], ["2026-05-06", 24330.95, 24916.38], ["2026-05-07", 24326.65, 24897.79], ["2026-05-08", 24176.15, 24879.94], ["2026-05-11", 23815.85, 24859.7], ["2026-05-12", 23379.55, 24835.92], ["2026-05-13", 23412.6, 24811.06], ["2026-05-14", 23689.6, 24787.49], ["2026-05-15", 23643.5, 24763.65], ["2026-05-18", 23649.95, 24741.55], ["2026-05-19", 23618.0, 24719.54], ["2026-05-20", 23659.0, 24697.98], ["2026-05-21", 23654.7, 24674.86], ["2026-05-22", 23719.3, 24650.33], ["2026-05-25", 24031.7, 24628.87], ["2026-05-26", 23913.7, 24606.59], ["2026-05-27", 23907.15, 24585.24], ["2026-05-29", 23547.75, 24561.29], ["2026-06-01", 23382.6, 24535.73], ["2026-06-02", 23483.55, 24509.27], ["2026-06-03", 23405.6, 24481.86], ["2026-06-04", 23416.55, 24452.74], ["2026-06-05", 23366.7, 24423.91], ["2026-06-08", 23123.0, 24393.35], ["2026-06-09", 23242.1, 24364.36], ["2026-06-10", 23214.95, 24337.74], ["2026-06-11", 23161.6, 24312.53], ["2026-06-12", 23424.15, 24288.87]]}, "rules": {"signal": "12-1m momentum (skip 21d)", "top_n": 20, "universe": "Top 300 by mcap (NIFTY 500 pool)", "mom_cap": null, "vol_cap": 0.5, "regime": "^NSEI > 100-SMA", "off_asset": "100% GOLDBEES", "rebal_mode": "winners_run", "weight_cap": 0.1, "trail": 0.3, "capital": 2000000, "dca": "0/1 tranches"}, "deposits": 0.0, "cash": 0.0, "mtm": 0.0, "nav": 0.0, "realized": 0.0, "unrealized": 0.0, "total_pl": 0.0, "total_pl_pct": null, "holdings": [], "trades": [], "nav_series": [["2026-05-20", 0.0, 0.0], ["2026-05-21", 0.0, 0.0], ["2026-05-22", 0.0, 0.0], ["2026-05-25", 0.0, 0.0], ["2026-06-05", 0.0, 0.0]], "bench_series": [], "ideal": {"asof": "2026-06-05", "label": "12-1m momentum (skip=21d, lookback=252d)", "picks": [{"symbol": "ATHERENERG", "score": 185.2, "price": 1033.6}, {"symbol": "NATIONALUM", "score": 132.1, "price": 395.7}, {"symbol": "MCX", "score": 128.0, "price": 2795.0}, {"symbol": "GVT&D", "score": 107.7, "price": 5067.0}, {"symbol": "ADANIPOWER", "score": 107.3, "price": 232.6}, {"symbol": "LAURUSLABS", "score": 97.6, "price": 1446.8}, {"symbol": "KIRLOSENG", "score": 97.1, "price": 1913.3}, {"symbol": "POWERINDIA", "score": 81.5, "price": 36870.0}, {"symbol": "LTF", "score": 73.5, "price": 268.6}, {"symbol": "HINDALCO", "score": 68.5, "price": 1092.6}, {"symbol": "CUMMINSIND", "score": 65.1, "price": 5784.0}, {"symbol": "ABCAPITAL", "score": 64.6, "price": 357.5}, {"symbol": "GESHIP", "score": 63.2, "price": 1464.0}, {"symbol": "MUTHOOTFIN", "score": 62.7, "price": 3153.1}, {"symbol": "RBLBANK", "score": 62.3, "price": 351.35}, {"symbol": "NAVINFLUOR", "score": 61.6, "price": 7032.5}, {"symbol": "APARINDS", "score": 59.8, "price": 13878.0}, {"symbol": "IDEA", "score": 59.7, "price": 14.95}, {"symbol": "SHRIRAMFIN", "score": 59.7, "price": 923.3}, {"symbol": "BHARATFORG", "score": 59.5, "price": 1929.8}]}, "diff": {"matching": [], "missing": ["ATHERENERG", "NATIONALUM", "MCX", "GVT&D", "ADANIPOWER", "LAURUSLABS", "KIRLOSENG", "POWERINDIA", "LTF", "HINDALCO", "CUMMINSIND", "ABCAPITAL", "GESHIP", "MUTHOOTFIN", "RBLBANK", "NAVINFLUOR", "APARINDS", "IDEA", "SHRIRAMFIN", "BHARATFORG"], "extra": []}, "off_rule": null, "funded": false}, {"key": "n50", "name": "NIFTY 50 Rotation", "market": "India", "currency": "INR", "csym": "\u20b9", "accent": "#34d399", "benchmark": "^NSEI", "regime": {"on": false, "close": 23423.95, "sma": 24288.86, "dist_pct": -3.56, "asof": "2026-06-12", "series": [["2025-05-26", 25001.15, 23462.59], ["2025-05-27", 24826.2, 23474.4], ["2025-05-28", 24752.45, 23485.48], ["2025-05-29", 24833.6, 23496.38], ["2025-05-30", 24750.7, 23502.0], ["2025-06-02", 24716.6, 23509.12], ["2025-06-03", 24542.5, 23518.39], ["2025-06-04", 24620.2, 23527.51], ["2025-06-05", 24750.9, 23538.13], ["2025-06-06", 25003.05, 23552.89], ["2025-06-09", 25103.2, 23569.61], ["2025-06-10", 25104.25, 23589.79], ["2025-06-11", 25141.4, 23609.45], ["2025-06-12", 24888.2, 23626.2], ["2025-06-13", 24718.6, 23640.27], ["2025-06-16", 24946.5, 23657.7], ["2025-06-17", 24853.4, 23672.79], ["2025-06-18", 24812.05, 23690.66], ["2025-06-19", 24793.25, 23707.04], ["2025-06-20", 25112.4, 23726.11], ["2025-06-23", 24971.9, 23744.91], ["2025-06-24", 25044.35, 23767.06], ["2025-06-25", 25244.75, 23789.93], ["2025-06-26", 25549.0, 23813.79], ["2025-06-27", 25637.8, 23837.67], ["2025-06-30", 25517.05, 23857.76], ["2025-07-01", 25541.8, 23878.36], ["2025-07-02", 25453.4, 23899.28], ["2025-07-03", 25405.3, 23915.94], ["2025-07-04", 25461.0, 23933.59], ["2025-07-07", 25461.3, 23952.17], ["2025-07-08", 25522.5, 23971.79], ["2025-07-09", 25476.1, 23992.74], ["2025-07-10", 25355.25, 24015.57], ["2025-07-11", 25149.85, 24036.62], ["2025-07-14", 25082.3, 24057.13], ["2025-07-15", 25195.8, 24079.79], ["2025-07-16", 25212.05, 24102.32], ["2025-07-17", 25111.45, 24123.98], ["2025-07-18", 24968.4, 24144.34], ["2025-07-21", 25090.7, 24166.11], ["2025-07-22", 25060.9, 24188.76], ["2025-07-23", 25219.9, 24215.43], ["2025-07-24", 25062.1, 24240.57], ["2025-07-25", 24837.0, 24263.49], ["2025-07-28", 24680.9, 24289.05], ["2025-07-29", 24821.1, 24316.07], ["2025-07-30", 24855.05, 24343.8], ["2025-07-31", 24768.35, 24368.11], ["2025-08-01", 24565.35, 24388.31], ["2025-08-04", 24722.75, 24410.02], ["2025-08-05", 24649.55, 24431.91], ["2025-08-06", 24574.2, 24452.67], ["2025-08-07", 24596.15, 24473.93], ["2025-08-08", 24363.3, 24493.59], ["2025-08-11", 24585.05, 24514.35], ["2025-08-12", 24487.4, 24530.88], ["2025-08-13", 24619.35, 24548.0], ["2025-08-14", 24631.3, 24562.41], ["2025-08-18", 24876.95, 24577.67], ["2025-08-19", 24980.65, 24590.89], ["2025-08-20", 25050.55, 24604.71], ["2025-08-21", 25083.75, 24620.68], ["2025-08-22", 24870.1, 24633.46], ["2025-08-25", 24967.75, 24647.95], ["2025-08-26", 24712.05, 24663.41], ["2025-08-28", 24500.9, 24675.1], ["2025-08-29", 24426.85, 24686.87], ["2025-09-01", 24625.05, 24704.07], ["2025-09-02", 24579.6, 24728.25], ["2025-09-03", 24715.05, 24750.04], ["2025-09-04", 24734.3, 24773.39], ["2025-09-05", 24741.0, 24792.52], ["2025-09-08", 24773.15, 24806.97], ["2025-09-09", 24868.6, 24821.28], ["2025-09-10", 24973.1, 24832.49], ["2025-09-11", 25005.5, 24841.29], ["2025-09-12", 25114.0, 24850.76], ["2025-09-15", 25069.2, 24858.16], ["2025-09-16", 25239.1, 24868.09], ["2025-09-17", 25330.25, 24881.0], ["2025-09-18", 25423.6, 24891.95], ["2025-09-19", 25327.05, 24901.86], ["2025-09-22", 25202.35, 24910.54], ["2025-09-23", 25169.5, 24918.77], ["2025-09-24", 25056.9, 24924.73], ["2025-09-25", 24890.85, 24929.84], ["2025-09-26", 24654.7, 24932.24], ["2025-09-29", 24634.9, 24935.85], ["2025-09-30", 24611.1, 24941.88], ["2025-10-01", 24836.3, 24941.0], ["2025-10-03", 24894.25, 24944.16], ["2025-10-06", 25077.65, 24948.27], ["2025-10-07", 25108.3, 24948.73], ["2025-10-08", 25046.15, 24948.99], ["2025-10-09", 25181.8, 24951.35], ["2025-10-10", 25285.35, 24957.37], ["2025-10-13", 25227.35, 24961.51], ["2025-10-14", 25145.5, 24966.87], ["2025-10-15", 25323.55, 24971.57], ["2025-10-16", 25585.3, 24977.41], ["2025-10-17", 25709.85, 24986.25], ["2025-10-20", 25843.15, 24997.15], ["2025-10-21", 25868.6, 25007.5], ["2025-10-23", 25891.4, 25018.91], ["2025-10-24", 25795.15, 25029.7], ["2025-10-27", 25966.05, 25043.93], ["2025-10-28", 25936.2, 25057.09], ["2025-10-29", 26053.9, 25070.12], ["2025-10-30", 25877.85, 25078.87], ["2025-10-31", 25722.1, 25085.06], ["2025-11-03", 25763.35, 25091.65], ["2025-11-04", 25597.65, 25096.21], ["2025-11-06", 25509.7, 25102.43], ["2025-11-07", 25492.3, 25110.17], ["2025-11-10", 25574.35, 25116.44], ["2025-11-11", 25694.95, 25124.86], ["2025-11-12", 25875.8, 25135.5], ["2025-11-13", 25879.15, 25146.36], ["2025-11-14", 25910.05, 25154.33], ["2025-11-17", 26013.45, 25164.75], ["2025-11-18", 25910.05, 25173.4], ["2025-11-19", 26052.65, 25181.48], ["2025-11-20", 26192.15, 25187.92], ["2025-11-21", 26068.15, 25192.22], ["2025-11-24", 25959.5, 25196.64], ["2025-11-25", 25884.8, 25200.07], ["2025-11-26", 26205.3, 25207.59], ["2025-11-27", 26215.55, 25215.69], ["2025-11-28", 26202.95, 25223.11], ["2025-12-01", 26175.75, 25230.26], ["2025-12-02", 26032.2, 25235.36], ["2025-12-03", 25986.0, 25240.45], ["2025-12-04", 26033.75, 25247.24], ["2025-12-05", 26186.45, 25257.61], ["2025-12-08", 25960.55, 25266.39], ["2025-12-09", 25839.65, 25272.83], ["2025-12-10", 25758.0, 25278.29], ["2025-12-11", 25898.55, 25286.16], ["2025-12-12", 26046.95, 25296.94], ["2025-12-15", 26027.3, 25306.31], ["2025-12-16", 25860.1, 25314.3], ["2025-12-17", 25818.55, 25320.29], ["2025-12-18", 25815.55, 25327.82], ["2025-12-19", 25966.4, 25339.12], ["2025-12-22", 26172.4, 25354.03], ["2025-12-23", 26177.15, 25367.59], ["2025-12-24", 26142.1, 25380.46], ["2025-12-26", 26042.3, 25393.2], ["2025-12-29", 25942.1, 25406.97], ["2025-12-30", 25938.85, 25419.13], ["2025-12-31", 26129.6, 25433.93], ["2026-01-01", 26146.55, 25449.65], ["2026-01-02", 26328.55, 25466.98], ["2026-01-05", 26250.3, 25485.85], ["2026-01-06", 26178.7, 25501.78], ["2026-01-07", 26140.75, 25518.32], ["2026-01-08", 25876.85, 25530.89], ["2026-01-09", 25683.3, 25541.41], ["2026-01-12", 25790.25, 25550.55], ["2026-01-13", 25732.3, 25558.06], ["2026-01-14", 25665.6, 25564.21], ["2026-01-16", 25694.35, 25570.32], ["2026-01-19", 25585.5, 25577.47], ["2026-01-20", 25232.5, 25580.12], ["2026-01-21", 25157.5, 25584.57], ["2026-01-22", 25289.9, 25592.46], ["2026-01-23", 25048.65, 25598.68], ["2026-01-27", 25175.4, 25604.19], ["2026-01-28", 25342.75, 25611.82], ["2026-01-29", 25418.9, 25618.86], ["2026-01-30", 25320.65, 25624.72], ["2026-02-02", 25088.4, 25628.19], ["2026-02-03", 25727.55, 25637.74], ["2026-02-04", 25776.0, 25646.81], ["2026-02-05", 25642.8, 25653.51], ["2026-02-06", 25693.7, 25660.39], ["2026-02-09", 25867.3, 25667.92], ["2026-02-10", 25935.15, 25676.58], ["2026-02-11", 25953.85, 25683.73], ["2026-02-12", 25807.2, 25688.5], ["2026-02-13", 25471.1, 25688.98], ["2026-02-16", 25682.75, 25692.53], ["2026-02-17", 25725.4, 25697.76], ["2026-02-18", 25819.35, 25704.26], ["2026-02-19", 25454.35, 25708.24], ["2026-02-20", 25571.25, 25715.04], ["2026-02-23", 25713.0, 25725.62], ["2026-02-24", 25424.65, 25733.52], ["2026-02-25", 25482.5, 25742.23], ["2026-02-26", 25496.55, 25748.84], ["2026-02-27", 25178.65, 25751.68], ["2026-03-02", 24865.7, 25749.56], ["2026-03-04", 24480.5, 25743.28], ["2026-03-05", 24765.9, 25740.48], ["2026-03-06", 24450.45, 25733.17], ["2026-03-09", 24028.05, 25720.59], ["2026-03-10", 24261.6, 25710.94], ["2026-03-11", 23866.85, 25698.15], ["2026-03-12", 23639.15, 25681.31], ["2026-03-13", 23151.1, 25656.96], ["2026-03-16", 23408.8, 25633.95], ["2026-03-17", 23581.15, 25611.33], ["2026-03-18", 23777.8, 25590.43], ["2026-03-19", 23002.15, 25561.53], ["2026-03-20", 23114.5, 25534.73], ["2026-03-23", 22512.65, 25500.19], ["2026-03-24", 22912.4, 25469.95], ["2026-03-25", 23306.45, 25442.48], ["2026-03-27", 22819.6, 25411.9], ["2026-03-30", 22331.4, 25377.99], ["2026-04-01", 22679.4, 25347.15], ["2026-04-02", 22713.1, 25318.31], ["2026-04-06", 22968.25, 25292.89], ["2026-04-07", 23123.65, 25269.2], ["2026-04-08", 23997.35, 25253.43], ["2026-04-09", 23775.1, 25234.24], ["2026-04-10", 24050.6, 25215.98], ["2026-04-13", 23842.65, 25195.62], ["2026-04-15", 24231.3, 25178.83], ["2026-04-16", 24196.75, 25160.66], ["2026-04-17", 24353.55, 25145.1], ["2026-04-20", 24364.85, 25128.22], ["2026-04-21", 24576.6, 25112.07], ["2026-04-22", 24378.1, 25095.17], ["2026-04-23", 24173.05, 25077.3], ["2026-04-24", 23897.95, 25057.43], ["2026-04-27", 24092.7, 25036.31], ["2026-04-28", 23995.7, 25014.11], ["2026-04-29", 24177.65, 24993.86], ["2026-04-30", 23997.55, 24972.07], ["2026-05-04", 24119.3, 24952.94], ["2026-05-05", 24032.8, 24933.41], ["2026-05-06", 24330.95, 24916.38], ["2026-05-07", 24326.65, 24897.79], ["2026-05-08", 24176.15, 24879.94], ["2026-05-11", 23815.85, 24859.7], ["2026-05-12", 23379.55, 24835.92], ["2026-05-13", 23412.6, 24811.06], ["2026-05-14", 23689.6, 24787.49], ["2026-05-15", 23643.5, 24763.65], ["2026-05-18", 23649.95, 24741.55], ["2026-05-19", 23618.0, 24719.54], ["2026-05-20", 23659.0, 24697.98], ["2026-05-21", 23654.7, 24674.86], ["2026-05-22", 23719.3, 24650.33], ["2026-05-25", 24031.7, 24628.87], ["2026-05-26", 23913.7, 24606.59], ["2026-05-27", 23907.15, 24585.24], ["2026-05-29", 23547.75, 24561.29], ["2026-06-01", 23382.6, 24535.73], ["2026-06-02", 23483.55, 24509.27], ["2026-06-03", 23405.6, 24481.86], ["2026-06-04", 23416.55, 24452.74], ["2026-06-05", 23366.7, 24423.91], ["2026-06-08", 23123.0, 24393.35], ["2026-06-09", 23242.1, 24364.36], ["2026-06-10", 23214.95, 24337.74], ["2026-06-11", 23161.6, 24312.53], ["2026-06-12", 23423.95, 24288.86]]}, "rules": {"signal": "12-1m momentum (skip 21d)", "top_n": 20, "universe": "NIFTY 50 (PIT membership)", "mom_cap": 1.0, "vol_cap": 0.5, "regime": "^NSEI > 100-SMA", "off_asset": "100% GOLDBEES", "rebal_mode": "equal_weight", "weight_cap": null, "trail": null, "capital": 1000000, "dca": "0/1 tranches"}, "deposits": 0.0, "cash": 0.0, "mtm": 0.0, "nav": 0.0, "realized": 0.0, "unrealized": 0.0, "total_pl": 0.0, "total_pl_pct": null, "holdings": [], "trades": [], "nav_series": [["2026-05-20", 0.0, 0.0], ["2026-05-21", 0.0, 0.0], ["2026-05-22", 0.0, 0.0], ["2026-05-25", 0.0, 0.0], ["2026-06-02", 0.0, 0.0]], "bench_series": [], "ideal": {"asof": "2026-06-05", "label": "12-1m momentum (skip=21d, lookback=252d)", "picks": [{"symbol": "HINDALCO", "score": 68.5, "price": 1092.6}, {"symbol": "SHRIRAMFIN", "score": 59.7, "price": 923.3}, {"symbol": "TATASTEEL", "score": 39.7, "price": 206.77}, {"symbol": "EICHERMOT", "score": 38.5, "price": 7070.0}, {"symbol": "SBIN", "score": 34.2, "price": 977.7}, {"symbol": "JSWSTEEL", "score": 31.5, "price": 1284.0}, {"symbol": "BAJAJ-AUTO", "score": 27.7, "price": 10342.0}, {"symbol": "ONGC", "score": 25.6, "price": 264.75}, {"symbol": "COALINDIA", "score": 25.0, "price": 472.3}, {"symbol": "NESTLEIND", "score": 23.9, "price": 1386.2}, {"symbol": "NTPC", "score": 23.6, "price": 361.65}, {"symbol": "TITAN", "score": 22.5, "price": 4260.2}, {"symbol": "ADANIPORTS", "score": 18.6, "price": 1824.2}, {"symbol": "GRASIM", "score": 17.7, "price": 3087.7}, {"symbol": "BEL", "score": 14.2, "price": 408.2}, {"symbol": "APOLLOHOSP", "score": 13.6, "price": 8304.5}, {"symbol": "MARUTI", "score": 13.3, "price": 13050.0}, {"symbol": "ASIANPAINT", "score": 12.8, "price": 2686.7}, {"symbol": "M&M", "score": 12.3, "price": 3040.5}, {"symbol": "SUNPHARMA", "score": 10.6, "price": 1782.2}]}, "diff": {"matching": [], "missing": ["HINDALCO", "SHRIRAMFIN", "TATASTEEL", "EICHERMOT", "SBIN", "JSWSTEEL", "BAJAJ-AUTO", "ONGC", "COALINDIA", "NESTLEIND", "NTPC", "TITAN", "ADANIPORTS", "GRASIM", "BEL", "APOLLOHOSP", "MARUTI", "ASIANPAINT", "M&M", "SUNPHARMA"], "extra": []}, "off_rule": null, "funded": false}], "usdinr": 95.22};
+const $ = s => document.querySelector(s);
+const fmtN = (v, cur) => {
+  const loc = cur === "INR" ? "en-IN" : "en-US";
+  return (cur === "INR" ? "₹" : "$") + Math.abs(v).toLocaleString(loc, {maximumFractionDigits: 0});
+};
+const money = (v, cur, sign) => (v < 0 ? "−" : (sign ? "+" : "")) + fmtN(v, cur);
+const pct = v => (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(2) + "%";
+const cls = v => v >= 0 ? "pos" : "neg";
+const ECOPT = {textStyle: {fontFamily: "'JetBrains Mono',monospace", color: "#8b91a7"}, backgroundColor: "transparent"};
+const charts = [];
+function mkChart(el, opt) {
+  const c = echarts.init(el, null, {renderer: "canvas"});
+  c.setOption(Object.assign({}, ECOPT, opt));
+  charts.push(c);
+  return c;
+}
+addEventListener("resize", () => charts.forEach(c => c.resize()));
+
+function countUp(el, target, cur) {
+  const t0 = performance.now(), dur = 1300, neg = target < 0;
+  function step(t) {
+    const p = Math.min((t - t0) / dur, 1), e = 1 - Math.pow(1 - p, 3);
+    el.textContent = (neg ? "−" : "") + fmtN(target * e, cur);
+    if (p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+/* ── hero ── */
+const fx = DATA.usdinr;
+let usdNav = 0, usdDep = 0, usdReal = 0, usdUnreal = 0;
+DATA.strategies.forEach(s => {
+  const k = s.currency === "INR" ? 1 / fx : 1;
+  usdNav += s.nav * k; usdDep += s.deposits * k;
+  usdReal += s.realized * k; usdUnreal += s.unrealized * k;
+});
+const usdPl = usdNav - usdDep;
+$("#stamp").textContent = DATA.generated;
+$("#stamp2").textContent = DATA.generated;
+countUp($("#heroNav"), usdNav, "USD");
+$("#heroSub").textContent = `across ${DATA.strategies.length} strategies · USD equivalent @ ₹${fx}/$`;
+$("#heroStats").innerHTML = [
+  ["Deployed", money(usdDep, "USD"), ""],
+  ["Total P&L", money(usdPl, "USD", 1) + (usdDep ? ` <small class="mut">(${pct(usdPl/usdDep*100)})</small>` : ""), cls(usdPl)],
+  ["Realized", money(usdReal, "USD", 1), cls(usdReal)],
+  ["Unrealized", money(usdUnreal, "USD", 1), cls(usdUnreal)],
+  ["Regimes ON", DATA.strategies.filter(s => s.regime.on).length + " / " + DATA.strategies.length, ""],
+].map(([k, v, c]) => `<div class="hstat"><div class="k">${k}</div><div class="v mono ${c}">${v}</div></div>`).join("");
+
+/* ── tabs ── */
+const tabs = [{key: "ov", name: "Overview", accent: "#22d3ee"}].concat(
+  DATA.strategies.map(s => ({key: s.key, name: s.name, accent: s.accent})));
+$("#tabs").innerHTML = tabs.map(t =>
+  `<button data-t="${t.key}" style="--acc:${t.accent}">${t.name}</button>`).join("");
+function show(key) {
+  document.querySelectorAll("nav button").forEach(b => b.classList.toggle("on", b.dataset.t === key));
+  document.querySelectorAll(".section").forEach(s => s.classList.toggle("on", s.id === "sec-" + key));
+  charts.forEach(c => c.resize());
+}
+$("#tabs").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (b) show(b.dataset.t);
+});
+
+/* ── overview section ── */
+const main = $("#main");
+const ov = document.createElement("div");
+ov.className = "section"; ov.id = "sec-ov";
+ov.innerHTML = `<div class="grid ovGrid" id="ovCards"></div>
+  <div class="card" style="margin-top:16px"><h3>Regime monitor</h3><div id="regMon"></div></div>`;
+main.appendChild(ov);
+
+DATA.strategies.forEach(s => {
+  const d = document.createElement("div");
+  d.className = "card stratCard"; d.style.setProperty("--acc", s.accent);
+  d.onclick = () => show(s.key);
+  const plc = cls(s.total_pl);
+  d.innerHTML = `
+    <div class="scTop">
+      <div><div class="scName">${s.name}</div><div class="scMkt">${s.market} · ${s.rules.universe}</div></div>
+      <span class="badge ${s.regime.on ? "onr" : "offr"}">${s.regime.on ? "REGIME ON" : "REGIME OFF → " + s.rules.off_asset}</span>
+    </div>
+    ${s.funded
+      ? `<div class="scNav mono">${money(s.nav, s.currency)}</div>
+         <div class="scPl mono ${plc}">${money(s.total_pl, s.currency, 1)} (${pct(s.total_pl_pct)}) all-time</div>
+         <div class="spark" id="spark-${s.key}"></div>`
+      : `<div class="scNav mono mut" style="font-size:22px">Not deployed</div>
+         <div class="scPl mut">Waiting for regime trigger · capital ready ${fmtN(s.rules.capital, s.currency)}</div>
+         <div class="spark"></div>`}
+    <div class="scFoot"><span>${s.rules.signal}</span><span>${s.holdings.length} positions · ${s.rules.dca}</span></div>`;
+  $("#ovCards").appendChild(d);
+});
+
+/* regime monitor bars */
+$("#regMon").innerHTML = DATA.strategies.map(s => {
+  const d = s.regime.dist_pct, w = Math.min(Math.abs(d) * 6, 100);
+  return `<div class="tbRow">
+    <div class="sym" style="color:${s.accent}">${s.key.toUpperCase()}</div>
+    <div class="tbBar"><div style="height:100%;width:${w}%;border-radius:6px;
+      background:${d >= 0 ? "linear-gradient(90deg,rgba(52,211,153,.3),#34d399)" : "linear-gradient(90deg,rgba(251,113,133,.3),#fb7185)"}"></div></div>
+    <div class="tbPct mono ${cls(d)}">${pct(d)}</div></div>
+  <div class="note" style="margin:-2px 0 12px 100px">${s.rules.regime} · close ${s.regime.close.toLocaleString()} vs MA ${s.regime.sma.toLocaleString()} · as of ${s.regime.asof}</div>`;
+}).join("");
+
+/* ── per-strategy sections ── */
+DATA.strategies.forEach(s => {
+  const cur = s.currency, sec = document.createElement("div");
+  sec.className = "section"; sec.id = "sec-" + s.key;
+  sec.style.setProperty("--acc", s.accent);
+
+  let h = `<div class="chips">` + [
+    ["NAV", s.funded ? money(s.nav, cur) : "—", ""],
+    ["Deployed", money(s.deposits, cur), ""],
+    ["Total P&L", s.funded ? money(s.total_pl, cur, 1) : "—", cls(s.total_pl)],
+    ["Realized", money(s.realized, cur, 1), cls(s.realized)],
+    ["Unrealized", money(s.unrealized, cur, 1), cls(s.unrealized)],
+    ["Cash", money(s.cash, cur), ""],
+  ].map(([k, v, c]) => `<div class="chip"><div class="k">${k}</div><div class="v mono ${c}">${v}</div></div>`).join("") + `</div>`;
+
+  /* pipeline */
+  const r = s.rules, steps = [
+    ["Universe", r.universe], ["Signal", r.signal],
+    r.mom_cap ? ["Mom cap", `exclude > +${r.mom_cap * 100}%`] : null,
+    r.vol_cap ? ["Vol cap", `exclude > ${r.vol_cap * 100}% ann.`] : null,
+    ["Regime gate", r.regime], ["Portfolio", `Top ${r.top_n} · ${r.rebal_mode}${r.weight_cap ? ` · ${r.weight_cap * 100}% cap` : ""}`],
+    r.trail ? ["Trail stop", `${r.trail * 100}% from peak`] : null,
+    ["Regime-off", r.off_asset],
+  ].filter(Boolean);
+  h += `<div class="card"><h3>Strategy pipeline</h3><div class="pipe">` +
+    steps.map(([k, v]) => `<div class="step"><b>${k}</b>${v}</div>`).join(`<span class="arr">→</span>`) +
+    `</div></div>`;
+
+  /* regime + off-rule */
+  h += `<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(330px,1fr));margin-top:16px">
+    <div class="card"><h3>Regime gate — ${r.regime}</h3>
+      <div class="gaugeRow">
+        <span class="badge ${s.regime.on ? "onr" : "offr"}" style="font-size:13px;padding:8px 16px">${s.regime.on ? "ON — DEPLOYED IN STOCKS" : "OFF — DEFENSIVE"}</span>
+        <div class="gNum mono ${cls(s.regime.dist_pct)}">${pct(s.regime.dist_pct)}</div>
+        <div class="gMeta">distance to MA<br>as of ${s.regime.asof}</div>
+      </div>
+      <div class="ec" id="reg-${s.key}" style="height:230px"></div>
+      ${s.off_rule ? `<div class="note">Dynamic off-rule: ${s.off_rule.says === "CASH" ? "🟡" : "🟢"} gold trail-12m
+        <b class="mono">${s.off_rule.gold_trail_12m > 0 ? "+" : ""}${s.off_rule.gold_trail_12m}%</b> vs ${s.off_rule.threshold}% threshold
+        → off-regime asset would be <b>${s.off_rule.says}</b></div>` : ""}
+    </div>
+    <div class="card"><h3>NAV vs deployed capital${s.bench_series.length ? " vs " + s.benchmark + " (same cashflows)" : ""}</h3>
+      ${s.funded ? `<div class="ec" id="nav-${s.key}" style="height:286px"></div>`
+                 : `<div class="empty">No capital deployed yet.<br>NAV curve starts when the regime triggers and the first tranche lands.</div>`}
+    </div></div>`;
+
+  /* holdings */
+  if (s.holdings.length) {
+    h += `<div class="grid" style="grid-template-columns:1.6fr 1fr;margin-top:16px" id="hwrap-${s.key}">
+      <div class="card"><h3>Current holdings — ${s.holdings.length} positions</h3>
+        <div class="scroll"><table><thead><tr>
+          <th>Symbol</th><th>Qty</th><th>Avg cost</th><th>Last</th><th>Value</th><th>Weight</th><th>Unrealized</th><th>%</th>
+        </tr></thead><tbody>` +
+      s.holdings.map(p => `<tr>
+        <td class="sym" style="color:${s.accent}">${p.symbol}</td>
+        <td class="mono">${p.shares}</td>
+        <td class="mono">${p.vwap.toLocaleString()}</td>
+        <td class="mono">${p.last.toLocaleString()}</td>
+        <td class="mono">${money(p.value, cur)}</td>
+        <td class="mono">${p.weight}%</td>
+        <td class="mono ${cls(p.upl)}">${money(p.upl, cur, 1)}</td>
+        <td class="mono ${cls(p.upl_pct)}">${pct(p.upl_pct)}</td></tr>`).join("") +
+      `</tbody></table></div></div>
+      <div style="display:grid;gap:16px">
+        <div class="card"><h3>P&L by position</h3><div class="ec" id="plbar-${s.key}" style="height:${Math.max(s.holdings.length * 26 + 40, 150)}px"></div></div>
+        <div class="card"><h3>Allocation</h3><div class="ec" id="alloc-${s.key}" style="height:220px"></div></div>
+      </div></div>`;
+
+    if (r.trail) {
+      h += `<div class="card" style="margin-top:16px"><h3>Trailing stop monitor — ${r.trail * 100}% from peak · buffer to trigger</h3>` +
+        s.holdings.filter(p => p.buffer_pct !== undefined)
+          .sort((a, b) => a.buffer_pct - b.buffer_pct)
+          .map(p => `<div class="tbRow">
+            <div class="sym">${p.symbol}</div>
+            <div class="tbBar"><div class="tbFill" style="width:${Math.min(p.buffer_pct / 45 * 100, 100)}%"></div></div>
+            <div class="tbPct mono ${p.buffer_pct < 8 ? "neg" : p.buffer_pct < 18 ? "" : "pos"}">${pct(p.buffer_pct)}</div>
+          </div>`).join("") +
+        `<div class="note">Buffer = distance from last price down to the stop (peak − ${r.trail * 100}%). A position sells at next open when buffer hits 0.</div></div>`;
+    }
+  }
+
+  /* ideal vs actual */
+  h += `<div class="card" style="margin-top:16px"><h3>Ideal portfolio — what the strategy says today</h3>`;
+  if (s.ideal) {
+    h += `<div class="note" style="margin:0 0 14px">${s.ideal.label} · signals as of ${s.ideal.asof}${s.regime.on ? "" : " · regime is OFF — these would be the picks if it flips ON"}</div>`;
+    if (s.diff && s.funded) {
+      h += `<div class="diffWrap">
+        <div class="diffCol"><div class="t">✓ Aligned (held & ideal)</div>${s.diff.matching.map(x => `<span class="tag m">${x}</span>`).join("") || '<span class="mut">none</span>'}</div>
+        <div class="diffCol"><div class="t">↑ In ideal, not held</div>${s.diff.missing.map(x => `<span class="tag b">${x}</span>`).join("") || '<span class="mut">none</span>'}</div>
+        <div class="diffCol"><div class="t">↓ Held, not in ideal</div>${s.diff.extra.map(x => `<span class="tag x">${x}</span>`).join("") || '<span class="mut">none</span>'}</div>
+      </div><div style="height:18px"></div>`;
+    }
+    h += `<div>` + s.ideal.picks.map((p, i) =>
+      `<span class="tag ${s.diff && s.diff.matching.includes(p.symbol) ? "m" : "b"}">${i + 1}. ${p.symbol}<small>+${p.score}%</small></span>`).join("") + `</div>`;
+    h += `<div class="note">Drift between actual and ideal is expected intra-month — the strategy only trades at scheduled rebalances${r.trail ? " and trail-stop triggers" : ""}.</div>`;
+  } else {
+    h += `<div class="empty">Ideal picks unavailable in this build (local price DB / NSE fetch not reachable). Re-run the builder with network + fresh DBs.</div>`;
+  }
+  h += `</div>`;
+
+  /* trades */
+  if (s.trades.length) {
+    h += `<div class="card" style="margin-top:16px"><h3>Journal — ${s.trades.length} entries (newest first)</h3>
+      <div class="scroll"><table><thead><tr>
+        <th>Date</th><th>Action</th><th>Symbol</th><th>Qty</th><th>Price</th><th>Amount</th><th>Realized</th><th>Reason</th>
+      </tr></thead><tbody>` +
+      s.trades.map(t => `<tr>
+        <td class="mono">${t.date}</td>
+        <td><span class="mono" style="color:${t.action === "BUY" ? "#34d399" : t.action === "SELL" ? "#fb7185" : "#a78bfa"}">${t.action}</span></td>
+        <td class="sym">${t.symbol || "—"}</td>
+        <td class="mono">${t.qty ?? ""}</td>
+        <td class="mono">${t.price ? t.price.toLocaleString() : ""}</td>
+        <td class="mono">${money(t.amount, cur)}</td>
+        <td class="mono ${t.realized == null ? "" : cls(t.realized)}">${t.realized == null ? "" : money(t.realized, cur, 1)}</td>
+        <td style="color:var(--dim);text-align:left">${t.reason}${t.notes ? ` <span style="color:var(--dim2)">· ${t.notes}</span>` : ""}</td></tr>`).join("") +
+      `</tbody></table></div></div>`;
+  } else {
+    h += `<div class="empty" style="margin-top:16px">Journal is empty — no trades yet for this strategy.</div>`;
+  }
+
+  sec.innerHTML = h;
+  main.appendChild(sec);
+});
+
+/* ── charts (after DOM) ── */
+DATA.strategies.forEach(s => {
+  /* overview sparkline */
+  const sp = document.getElementById("spark-" + s.key);
+  if (sp && s.nav_series.length > 1) {
+    mkChart(sp, {
+      grid: {left: 0, right: 0, top: 4, bottom: 0},
+      xAxis: {type: "category", show: false, data: s.nav_series.map(p => p[0])},
+      yAxis: {type: "value", show: false, min: v => v.min * 0.995},
+      series: [{type: "line", data: s.nav_series.map(p => p[1]), smooth: true, symbol: "none",
+        lineStyle: {width: 2, color: s.accent},
+        areaStyle: {color: {type: "linear", x: 0, y: 0, x2: 0, y2: 1,
+          colorStops: [{offset: 0, color: s.accent + "55"}, {offset: 1, color: s.accent + "00"}]}}}]
+    });
+  }
+
+  /* regime chart */
+  const rg = document.getElementById("reg-" + s.key);
+  if (rg) {
+    mkChart(rg, {
+      grid: {left: 8, right: 8, top: 16, bottom: 24, containLabel: true},
+      tooltip: {trigger: "axis", backgroundColor: "#11131c", borderColor: "rgba(255,255,255,.1)", textStyle: {color: "#e8eaf2", fontSize: 12}},
+      xAxis: {type: "category", data: s.regime.series.map(p => p[0]),
+        axisLine: {lineStyle: {color: "rgba(255,255,255,.15)"}}, axisLabel: {fontSize: 10}},
+      yAxis: {type: "value", scale: true, splitLine: {lineStyle: {color: "rgba(255,255,255,.05)"}}, axisLabel: {fontSize: 10}},
+      series: [
+        {name: s.benchmark, type: "line", data: s.regime.series.map(p => p[1]), symbol: "none",
+         lineStyle: {width: 1.8, color: s.accent}, z: 3},
+        {name: "MA", type: "line", data: s.regime.series.map(p => p[2]), symbol: "none",
+         lineStyle: {width: 1.4, color: "#a78bfa", type: "dashed"}}]
+    });
+  }
+
+  /* nav chart */
+  const nv = document.getElementById("nav-" + s.key);
+  if (nv && s.nav_series.length) {
+    const dates = [...new Set(s.nav_series.map(p => p[0]).concat(s.bench_series.map(p => p[0])))].sort();
+    const navMap = Object.fromEntries(s.nav_series.map(p => [p[0], p[1]]));
+    const depMap = Object.fromEntries(s.nav_series.map(p => [p[0], p[2]]));
+    const benMap = Object.fromEntries(s.bench_series.map(p => [p[0], p[1]]));
+    mkChart(nv, {
+      grid: {left: 8, right: 8, top: 30, bottom: 24, containLabel: true},
+      tooltip: {trigger: "axis", backgroundColor: "#11131c", borderColor: "rgba(255,255,255,.1)", textStyle: {color: "#e8eaf2", fontSize: 12}},
+      legend: {top: 0, textStyle: {color: "#8b91a7", fontSize: 11}, itemWidth: 14},
+      xAxis: {type: "category", data: dates, axisLine: {lineStyle: {color: "rgba(255,255,255,.15)"}}, axisLabel: {fontSize: 10}},
+      yAxis: {type: "value", scale: true, splitLine: {lineStyle: {color: "rgba(255,255,255,.05)"}}, axisLabel: {fontSize: 10}},
+      series: [
+        {name: "Strategy NAV", type: "line", data: dates.map(d => navMap[d] ?? null), connectNulls: true,
+         symbol: "none", smooth: true, lineStyle: {width: 2.4, color: s.accent}, z: 4,
+         areaStyle: {color: {type: "linear", x: 0, y: 0, x2: 0, y2: 1,
+           colorStops: [{offset: 0, color: s.accent + "33"}, {offset: 1, color: s.accent + "00"}]}}},
+        {name: "Deployed", type: "line", step: "end", data: dates.map(d => depMap[d] ?? null), connectNulls: true,
+         symbol: "none", lineStyle: {width: 1.3, color: "#5c6177", type: "dotted"}},
+        ...(s.bench_series.length ? [{name: s.benchmark + " (same cashflows)", type: "line",
+          data: dates.map(d => benMap[d] ?? null), connectNulls: true, symbol: "none", smooth: true,
+          lineStyle: {width: 1.6, color: "#a78bfa"}}] : [])]
+    });
+  }
+
+  /* P&L bars + allocation donut */
+  const pb = document.getElementById("plbar-" + s.key);
+  if (pb) {
+    const hh = [...s.holdings].sort((a, b) => a.upl_pct - b.upl_pct);
+    mkChart(pb, {
+      grid: {left: 8, right: 36, top: 6, bottom: 6, containLabel: true},
+      tooltip: {backgroundColor: "#11131c", borderColor: "rgba(255,255,255,.1)", textStyle: {color: "#e8eaf2"},
+        formatter: p => `${p.name}: ${p.value >= 0 ? "+" : ""}${p.value}%`},
+      xAxis: {type: "value", splitLine: {lineStyle: {color: "rgba(255,255,255,.05)"}}, axisLabel: {fontSize: 10, formatter: "{value}%"}},
+      yAxis: {type: "category", data: hh.map(p => p.symbol), axisLabel: {fontSize: 11, fontFamily: "'JetBrains Mono',monospace"}},
+      series: [{type: "bar", data: hh.map(p => ({value: p.upl_pct,
+        itemStyle: {color: p.upl_pct >= 0 ? "#34d399" : "#fb7185", borderRadius: 4}})),
+        barWidth: 13, label: {show: true, position: "right", fontSize: 10, color: "#8b91a7",
+          formatter: p => (p.value >= 0 ? "+" : "") + p.value + "%"}}]
+    });
+  }
+  const al = document.getElementById("alloc-" + s.key);
+  if (al) {
+    const items = s.holdings.map(p => ({name: p.symbol, value: p.value}));
+    if (s.cash > 1) items.push({name: "CASH", value: Math.round(s.cash)});
+    mkChart(al, {
+      tooltip: {backgroundColor: "#11131c", borderColor: "rgba(255,255,255,.1)", textStyle: {color: "#e8eaf2"},
+        formatter: p => `${p.name}: ${p.percent}%`},
+      series: [{type: "pie", radius: ["52%", "78%"], padAngle: 1.5,
+        itemStyle: {borderRadius: 5, borderColor: "#06070d", borderWidth: 2},
+        label: {color: "#8b91a7", fontSize: 10, fontFamily: "'JetBrains Mono',monospace"},
+        data: items}]
+    });
+  }
+});
+
+show("ov");
+</script>
+</body>
+</html>
